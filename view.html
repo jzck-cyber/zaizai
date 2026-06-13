@@ -28,12 +28,12 @@
     <footer>© 2026 崽崽 · 歌单展示版（云端实时同步）</footer>
 </div>
 <script>
-    const BIN_ID = "6a2cf550f5f4af5e29ea8566";
-    const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;  // 注意：公开读取不需要 API Key，但你的 Bin 如果是私有的，则需要加 Key。这里先用无 Key 的 public 方式，如果你的 Bin 是私有的请改回带 Key 的版本。
+    // Bin 已是 Public，可以直接读取最新版本
+    const BIN_ID = "6a2cf550f5f4af5e29ea8566";   // 你的 Bin ID
+    const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
 
     async function loadAndRender() {
         try {
-            // 如果你的 Bin 是私有的，请使用带 Key 的 headers
             const res = await fetch(API_URL);
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const data = await res.json();
