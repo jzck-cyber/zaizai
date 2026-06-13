@@ -41,16 +41,16 @@
         .avatar {
             width: 128px;
             height: 128px;
-            background: linear-gradient(135deg, #4f7df3, #8b5cf6);
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             margin: 0 auto 1.5rem;
-            color: white;
-            font-size: 3rem;
-            font-weight: 500;
+            overflow: hidden;          /* 保证图片圆角裁剪 */
             box-shadow: 0 8px 20px rgba(79,125,243,0.3);
+            background: #eef2ff;       /* 后备背景色 */
+        }
+        .avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;          /* 图片覆盖整个区域，保持比例 */
         }
         h1 {
             font-size: 2.2rem;
@@ -189,7 +189,7 @@
     <!-- 个人信息卡片 -->
     <div class="card profile">
         <div class="avatar">
-             <img src="85b60b5b64cd098d71ce406b65926f4 .jpg" alt="崽崽的头像" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">
+            <img src="85b60b5b64cd098d71ce406b65926f4.jpg" alt="崽崽的头像">
         </div>
         <h1>崽崽</h1>
         <div class="tagline">✨ 全职杂谈主播 ✨</div>
