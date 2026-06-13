@@ -1,27 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>歌单管理｜崽崽</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:system-ui;background:linear-gradient(145deg,#f8faff,#f0f2f8);padding:2rem 1rem;color:#1e2a3e;}
+        .container{max-width:900px;margin:0 auto;}
+        .card{background:rgba(255,255,255,0.85);backdrop-filter:blur(2px);border-radius:2rem;padding:2rem;margin-bottom:2rem;box-shadow:0 20px 35px -12px rgba(0,0,0,0.1);}
+        h1{font-size:2rem;margin-bottom:0.5rem;}
+        .sub{color:#4b5a6e;margin-bottom:1.5rem;border-left:3px solid #4f7df3;padding-left:1rem;}
+        .form-group{margin-bottom:1.2rem;}
+        label{display:block;font-weight:500;margin-bottom:0.4rem;}
+        input{width:100%;padding:0.8rem 1rem;border:1px solid #cfddee;border-radius:1.5rem;}
+        button{background:#4f7df3;color:white;border:none;padding:0.7rem 1.5rem;border-radius:2rem;cursor:pointer;}
+        .btn-secondary{background:#cdd9f4;color:#1e2a3e;}
+        .song-item{background:white;border-radius:1.2rem;padding:1rem;margin-bottom:0.8rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;}
+        .song-name{font-weight:700;}
+        .edit-btn,.delete-btn{background:none;border:none;padding:0.3rem 1rem;border-radius:2rem;cursor:pointer;}
+        .edit-btn{background:#eef2ff;color:#4f7df3;}
+        .delete-btn{background:#fee2e2;color:#e5484d;}
+        .back-link{display:inline-block;margin-top:1rem;color:#4f7df3;text-decoration:none;}
+        .empty-msg{text-align:center;padding:2rem;color:#6c7a91;}
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <h1>🎤 崽崽的歌单管理</h1>
+        <div class="sub">只有你能看到这个页面～ 增、删、改歌曲（云端同步）</div>
+        <div class="form-group"><label>歌曲名称 *</label><input type="text" id="songName" placeholder="例：失眠飞行"></div>
+        <div class="form-group"><label>备注 / 原唱</label><input type="text" id="songRemark" placeholder="例：原唱：接个吻，开一枪"></div>
+        <div><button id="addBtn">➕ 添加歌曲</button> <button id="cancelEditBtn" class="btn-secondary" style="display:none;">取消编辑</button></div>
+    </div>
+    <div class="card">
+        <h2>📋 当前曲库</h2>
+        <div id="songListContainer"></div>
+        <a href="index.html" class="back-link">← 返回主页</a>
+    </div>
+</div>
 <script>
-    // ========== 配置区域 ==========
-    const BIN_ID = "6a2cf550f5f4af5e29ea8566";          // 例如 "65a1b2c3d4e5f67890abcd"
-    const API_KEY = "$2a$10$e2f5uGDXTK37nFCRT2PyeO6Ws7MuWT3w.XPjZ6LqEHWuRFHy/hE66"; // 以 $2a$ 开头的一串字符
+    // ========== 配置区域（已填入你的信息）==========
+    const BIN_ID = "6a2cf550f5f4af5e29ea8566";
+    const API_KEY = "$2a$10$e2f5uGDXTK37nFCRT2PyeO6Ws7MuWT3w.XPjZ6LqEHWuRFHy/hE66";
     const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
-    // =============================
+    // =============================================
 
     let playlist = [];
     let editIndex = null;
 
-    // 从云端加载数据
     async function loadFromCloud() {
         try {
-            const res = await fetch(API_URL, {
-                headers: { "X-Master-Key": API_KEY }
-            });
+            const res = await fetch(API_URL, { headers: { "X-Master-Key": API_KEY } });
             const data = await res.json();
             playlist = data.record;
             if (!Array.isArray(playlist)) playlist = [];
-            saveToLocal();          // 缓存到本地（可选）
+            saveToLocal();
             render();
         } catch (err) {
             console.error("加载失败", err);
-            // 降级：尝试读取本地缓存
             const local = localStorage.getItem('zaizai_songlist');
             if (local) playlist = JSON.parse(local);
             else playlist = [];
@@ -29,15 +67,11 @@
         }
     }
 
-    // 保存到云端（每次修改后调用）
     async function saveToCloud() {
         try {
             await fetch(API_URL, {
                 method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-Master-Key": API_KEY
-                },
+                headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
                 body: JSON.stringify(playlist)
             });
             saveToLocal();
@@ -47,9 +81,7 @@
         }
     }
 
-    function saveToLocal() {
-        localStorage.setItem('zaizai_songlist', JSON.stringify(playlist));
-    }
+    function saveToLocal() { localStorage.setItem('zaizai_songlist', JSON.stringify(playlist)); }
 
     function render() {
         const container = document.getElementById('songListContainer');
@@ -76,13 +108,10 @@
         container.innerHTML = html;
 
         document.querySelectorAll('.edit-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const idx = parseInt(btn.dataset.index);
-                editSong(idx);
-            });
+            btn.addEventListener('click', () => editSong(parseInt(btn.dataset.index)));
         });
         document.querySelectorAll('.delete-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
+            btn.addEventListener('click', async () => {
                 const idx = parseInt(btn.dataset.index);
                 if (confirm(`删除《${playlist[idx].name}》？`)) {
                     playlist.splice(idx, 1);
@@ -127,12 +156,7 @@
 
     function escapeHtml(str) {
         if (!str) return '';
-        return str.replace(/[&<>]/g, m => {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        });
+        return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] || m));
     }
 
     document.getElementById('addBtn').addEventListener('click', async () => {
@@ -148,3 +172,5 @@
 
     loadFromCloud();
 </script>
+</body>
+</html>
