@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>个人主页 | 崽崽的作品集</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+            background: linear-gradient(145deg, #f8faff 0%, #f0f2f8 100%);
+            color: #1e2a3e;
+            line-height: 1.5;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(2px);
+            border-radius: 2rem;
+            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.1);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+
+        .profile {
+            text-align: center;
+        }
+        .avatar {
+            width: 128px;
+            height: 128px;
+            background: linear-gradient(135deg, #4f7df3, #8b5cf6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            color: white;
+            font-size: 3rem;
+            font-weight: 500;
+            box-shadow: 0 8px 20px rgba(79,125,243,0.3);
+        }
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            background: linear-gradient(135deg, #1e2a3e, #2d3a4e);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+        .tagline {
+            font-size: 1.2rem;
+            color: #4b5a6e;
+            margin-top: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .bio {
+            max-width: 600px;
+            margin: 1rem auto 0;
+            color: #334155;
+        }
+
+        .section-title {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 3px solid #4f7df3;
+            display: inline-block;
+        }
+
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.8rem;
+            margin-top: 1rem;
+        }
+        .project-card {
+            background: white;
+            border-radius: 1.5rem;
+            padding: 1.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.05);
+            border: 1px solid #e9eef3;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -12px rgba(0,0,0,0.15);
+        }
+        .project-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #0f172a;
+        }
+        .project-desc {
+            color: #475569;
+            font-size: 0.95rem;
+            margin: 0.75rem 0;
+        }
+        .project-tag {
+            display: inline-block;
+            background: #eef2ff;
+            color: #4f7df3;
+            border-radius: 40px;
+            padding: 0.2rem 0.8rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .social-links {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 1.2rem;
+            margin-top: 1rem;
+        }
+        .social-btn {
+            background: white;
+            padding: 0.7rem 1.5rem;
+            border-radius: 60px;
+            text-decoration: none;
+            font-weight: 500;
+            color: #1e2a3e;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            border: 1px solid #cfddee;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        }
+        .social-btn:hover {
+            background: #4f7df3;
+            color: white;
+            border-color: #4f7df3;
+            transform: scale(1.02);
+        }
+        .contact-email {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            color: #4b5563;
+        }
+        .extra-note {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #6c7a91;
+            margin-top: 1rem;
+        }
+        hr {
+            border: none;
+            height: 1px;
+            background: linear-gradient(to right, transparent, #cbd5e1, transparent);
+            margin: 1rem 0;
+        }
+        footer {
+            text-align: center;
+            padding: 1.5rem 0;
+            font-size: 0.8rem;
+            color: #6c7a91;
+        }
+        @media (max-width: 640px) {
+            .card {
+                padding: 1.5rem;
+            }
+            h1 { font-size: 1.8rem; }
+            .section-title { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- 个人信息卡片 -->
+    <div class="card profile">
+        <div class="avatar">
+            👨‍💻
+        </div>
+        <h1>崽崽</h1>
+        <div class="tagline">✨ 全栈开发者 · 创意设计师 ✨</div>
+        <div class="bio">
+            热爱创造简洁优雅的数字产品，相信代码与设计能让世界更美好。目前专注于前端开发与用户体验。
+        </div>
+    </div>
+
+    <!-- 精选作品：两个歌单入口 + 信箱 -->
+    <div class="card">
+        <div class="section-title">精选作品</div>
+        <div class="projects-grid">
+            <a href="manage.html" class="project-card" style="text-decoration: none;">
+                <div class="project-title">🎤 歌单管理 · 仅自己</div>
+                <div class="project-desc">崽崽的私人后台，可以添加、修改、删除我会唱的歌曲。</div>
+                <span class="project-tag">🔐 需编辑权限</span>
+                <span class="project-tag">✏️ 增删改</span>
+            </a>
+            <a href="view.html" class="project-card" style="text-decoration: none;">
+                <div class="project-title">🎶 崽崽的完整曲库</div>
+                <div class="project-desc">展示所有歌曲，供大家查阅～ 不可编辑，只读版本。</div>
+                <span class="project-tag">📋 纯展示</span>
+                <span class="project-tag">🎵 所有歌曲</span>
+            </a>
+            <div class="project-card">
+                <div class="project-title">📬 崽崽的信箱</div>
+                <div class="project-desc">一个匿名倾诉与心灵树洞。你可以写信分享故事、问题或悄悄话，崽崽会认真回复并精选匿名公开。</div>
+                <span class="project-tag">情感交流</span>
+                <span class="project-tag">匿名信箱</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 联系我板块（保持不变） -->
+    <div class="card">
+        <div class="section-title">保持联系</div>
+        <div class="social-links">
+            <a href="#" class="social-btn">🐧 QQ群</a>
+            <a href="#" class="social-btn">💬 微信群</a>
+            <a href="#" class="social-btn">🎬 B站直播间</a>
+        </div>
+        <div class="contact-email">
+            📧 邮件联系: <strong>zaizai@example.com</strong>
+        </div>
+        <div class="extra-note">
+            🔔 QQ群号：123456789（请将链接替换为实际群链接）<br>
+            📱 微信群：添加微信 zaizai_helper 拉你入群<br>
+            📺 B站直播间：<a href="#" style="color:#4f7df3;">https://live.bilibili.com/123456</a>
+        </div>
+        <hr />
+        <div style="text-align: center; font-size: 0.85rem;">
+            💡 开放合作 & 技术交流 —— 欢迎随时聊聊你的想法。
+        </div>
+    </div>
+    <footer>
+        © 2026 崽崽 · 保持好奇，持续创造
+    </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<<script>
+    const BIN_ID = "6a2cf550f5f4af5e29ea8566";      // 和上面一样
+    const API_KEY = "$2a$10$e2f5uGDXTK37nFCRT2PyeO6Ws7MuWT3w.XPjZ6LqEHWuRFHy/hE66";  // 这里需要填 API Key（注意：展示页面也用到 API Key？其实 JSONBin 的公开 bin 可以不用 key 读取，但为了安全，建议展示页面也使用相同的 key 或使用只读 key。你也可以在 JSONBin 中设置为 Public，然后无需 key 读取。下面用带 key 的读取方式，对访客无影响，因为 key 写在代码里只是用来读取，无法修改）
+    const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+    async function loadAndRender() {
+        try {
+            const res = await fetch(API_URL, {
+                headers: { "X-Master-Key": API_KEY }
+            });
+            const data = await res.json();
+            let playlist = data.record || [];
+            const container = document.getElementById('songsGrid');
+            if (!playlist.length) {
+                container.innerHTML = '<div class="empty-msg">🎵 暂无歌曲，崽崽正在努力加载中～</div>';
+                return;
+            }
+            let html = '';
+            playlist.forEach(song => {
+                html += `
+                    <div class="song-card">
+                        <div class="song-name">🎤 ${escapeHtml(song.name)}</div>
+                        <div class="song-remark">${escapeHtml(song.remark) || '✨ 暂无备注'}</div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        } catch (err) {
+            document.getElementById('songsGrid').innerHTML = '<div class="empty-msg">⚠️ 加载失败，请稍后重试</div>';
+        }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, m => {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    loadAndRender();
+    // 每30秒自动刷新一次，保持歌单最新
+    setInterval(loadAndRender, 30000);
+<script>
+    const BIN_ID = "你的BinID";      // 和上面一样
+    const API_KEY = "$2a$10$你的APIKey";  // 这里需要填 API Key（注意：展示页面也用到 API Key？其实 JSONBin 的公开 bin 可以不用 key 读取，但为了安全，建议展示页面也使用相同的 key 或使用只读 key。你也可以在 JSONBin 中设置为 Public，然后无需 key 读取。下面用带 key 的读取方式，对访客无影响，因为 key 写在代码里只是用来读取，无法修改）
+    const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+    async function loadAndRender() {
+        try {
+            const res = await fetch(API_URL, {
+                headers: { "X-Master-Key": API_KEY }
+            });
+            const data = await res.json();
+            let playlist = data.record || [];
+            const container = document.getElementById('songsGrid');
+            if (!playlist.length) {
+                container.innerHTML = '<div class="empty-msg">🎵 暂无歌曲，崽崽正在努力加载中～</div>';
+                return;
+            }
+            let html = '';
+            playlist.forEach(song => {
+                html += `
+                    <div class="song-card">
+                        <div class="song-name">🎤 ${escapeHtml(song.name)}</div>
+                        <div class="song-remark">${escapeHtml(song.remark) || '✨ 暂无备注'}</div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        } catch (err) {
+            document.getElementById('songsGrid').innerHTML = '<div class="empty-msg">⚠️ 加载失败，请稍后重试</div>';
+        }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, m => {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    loadAndRender();
+    // 每30秒自动刷新一次，保持歌单最新
+    setInterval(loadAndRender, 30000);
+</script>

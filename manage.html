@@ -1,0 +1,150 @@
+<script>
+    // ========== 配置区域 ==========
+    const BIN_ID = "6a2cf550f5f4af5e29ea8566";          // 例如 "65a1b2c3d4e5f67890abcd"
+    const API_KEY = "$2a$10$e2f5uGDXTK37nFCRT2PyeO6Ws7MuWT3w.XPjZ6LqEHWuRFHy/hE66"; // 以 $2a$ 开头的一串字符
+    const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+    // =============================
+
+    let playlist = [];
+    let editIndex = null;
+
+    // 从云端加载数据
+    async function loadFromCloud() {
+        try {
+            const res = await fetch(API_URL, {
+                headers: { "X-Master-Key": API_KEY }
+            });
+            const data = await res.json();
+            playlist = data.record;
+            if (!Array.isArray(playlist)) playlist = [];
+            saveToLocal();          // 缓存到本地（可选）
+            render();
+        } catch (err) {
+            console.error("加载失败", err);
+            // 降级：尝试读取本地缓存
+            const local = localStorage.getItem('zaizai_songlist');
+            if (local) playlist = JSON.parse(local);
+            else playlist = [];
+            render();
+        }
+    }
+
+    // 保存到云端（每次修改后调用）
+    async function saveToCloud() {
+        try {
+            await fetch(API_URL, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Master-Key": API_KEY
+                },
+                body: JSON.stringify(playlist)
+            });
+            saveToLocal();
+        } catch (err) {
+            console.error("保存失败", err);
+            alert("网络错误，数据未同步到云端，请稍后重试");
+        }
+    }
+
+    function saveToLocal() {
+        localStorage.setItem('zaizai_songlist', JSON.stringify(playlist));
+    }
+
+    function render() {
+        const container = document.getElementById('songListContainer');
+        if (!container) return;
+        if (playlist.length === 0) {
+            container.innerHTML = '<div class="empty-msg">✨ 暂无歌曲，添加一首吧～</div>';
+            return;
+        }
+        let html = '';
+        playlist.forEach((song, idx) => {
+            html += `
+                <div class="song-item">
+                    <div class="song-info">
+                        <div class="song-name">🎵 ${escapeHtml(song.name)}</div>
+                        <div class="song-remark">${escapeHtml(song.remark) || '无备注'}</div>
+                    </div>
+                    <div class="actions">
+                        <button class="edit-btn" data-index="${idx}">✏️ 编辑</button>
+                        <button class="delete-btn" data-index="${idx}">🗑️ 删除</button>
+                    </div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(btn.dataset.index);
+                editSong(idx);
+            });
+        });
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const idx = parseInt(btn.dataset.index);
+                if (confirm(`删除《${playlist[idx].name}》？`)) {
+                    playlist.splice(idx, 1);
+                    await saveToCloud();
+                    render();
+                    if (editIndex !== null) cancelEdit();
+                }
+            });
+        });
+    }
+
+    function editSong(index) {
+        const song = playlist[index];
+        document.getElementById('songName').value = song.name;
+        document.getElementById('songRemark').value = song.remark || '';
+        editIndex = index;
+        document.getElementById('addBtn').textContent = '✏️ 保存修改';
+        document.getElementById('cancelEditBtn').style.display = 'inline-block';
+    }
+
+    function cancelEdit() {
+        document.getElementById('songName').value = '';
+        document.getElementById('songRemark').value = '';
+        editIndex = null;
+        document.getElementById('addBtn').textContent = '➕ 添加歌曲';
+        document.getElementById('cancelEditBtn').style.display = 'none';
+    }
+
+    async function saveSong(name, remark) {
+        if (!name.trim()) { alert("请填写歌名"); return false; }
+        if (editIndex !== null) {
+            playlist[editIndex] = { name: name.trim(), remark: remark.trim() };
+            editIndex = null;
+            cancelEdit();
+        } else {
+            playlist.push({ name: name.trim(), remark: remark.trim() });
+        }
+        await saveToCloud();
+        render();
+        return true;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, m => {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    document.getElementById('addBtn').addEventListener('click', async () => {
+        const name = document.getElementById('songName').value;
+        const remark = document.getElementById('songRemark').value;
+        await saveSong(name, remark);
+        if (editIndex === null) {
+            document.getElementById('songName').value = '';
+            document.getElementById('songRemark').value = '';
+        }
+    });
+    document.getElementById('cancelEditBtn').addEventListener('click', cancelEdit);
+
+    loadFromCloud();
+</script>
