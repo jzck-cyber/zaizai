@@ -53,7 +53,7 @@
     const firebaseConfig = {
         apiKey: "AIzaSyDW-Ix5Foerv-5A8M2-u1wabvb9Fai0wqU",
         authDomain: "xinxiang1-2e2a7.firebaseapp.com",
-        databaseURL: "https://xinxiang1-2e2a7-default-rtdb.firebaseio.com",  // 确认这个地址正确
+        databaseURL: "https://xinxiang1-2e2a7-default-rtdb.firebaseio.com",
         projectId: "xinxiang1-2e2a7",
         storageBucket: "xinxiang1-2e2a7.firebasestorage.app",
         messagingSenderId: "56801188595",
@@ -72,7 +72,6 @@
 
     const statusDiv = document.getElementById('loginStatus');
 
-    // 匿名登录，并显示状态
     auth.signInAnonymously()
         .then(() => {
             statusDiv.innerHTML = '✅ 已匿名登录，可以发布信件和评论';
@@ -89,7 +88,6 @@
         if (user) {
             currentUser = user;
             console.log("登录成功 uid:", user.uid);
-            // 检查是否是管理员
             database.ref(`admins/${user.uid}`).once('value').then(snap => {
                 isAdmin = snap.exists();
                 if (isAdmin) {
@@ -146,10 +144,16 @@
         });
     }
 
-    // 删除信件（仅管理员或作者）
-    async function deleteLetter(letterId) {
-        if (!isAdmin && !confirm("你不是管理员，无法删除")) return;
-        await database.ref(`letters/${letterId}`).remove();
+    // ✅ 修正后的删除函数：管理员或作者可删除，且只有一次确认
+    async function deleteLetter(letterId, letterUserId) {
+        // 权限判断：管理员 或 信件作者
+        if (!isAdmin && letterUserId !== currentUser?.uid) {
+            alert("你没有权限删除此信件");
+            return;
+        }
+        if (confirm("确定删除这封信件吗？")) {
+            await database.ref(`letters/${letterId}`).remove();
+        }
     }
 
     // 实时渲染信件列表
@@ -177,7 +181,10 @@
                     </div>
                 `;
             });
-            const showDelete = (isAdmin || letter.userId === currentUser?.uid) ? `<button class="delete-btn" data-id="${letter.id}">🗑️ 删除</button>` : '';
+            // 删除按钮显示条件：管理员 或 信件作者
+            const showDelete = (isAdmin || letter.userId === currentUser?.uid) 
+                ? `<button class="delete-btn" data-id="${letter.id}" data-userid="${letter.userId}">🗑️ 删除</button>` 
+                : '';
             html += `
                 <div class="letter" data-id="${letter.id}">
                     <div class="letter-header">
@@ -197,12 +204,15 @@
         }
         container.innerHTML = html;
 
+        // 绑定删除按钮事件（传递作者ID）
         document.querySelectorAll('.delete-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const letterId = btn.getAttribute('data-id');
-                if (confirm("确定删除这封信件吗？")) deleteLetter(letterId);
+                const letterUserId = btn.getAttribute('data-userid');
+                deleteLetter(letterId, letterUserId);
             });
         });
+        // 绑定评论提交事件
         document.querySelectorAll('.comment-submit').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const letterId = btn.getAttribute('data-id');
