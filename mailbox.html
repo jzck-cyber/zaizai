@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>树洞信箱｜崽崽</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -36,19 +36,17 @@
 <div class="container">
     <div class="card">
         <h1>📬 崽崽的树洞信箱</h1>
-        <div class="sub">匿名倾诉，温暖回响</div>
+        <div class="sub">匿名倾诉，温暖回响（只有管理员可删除）</div>
         <div class="browser-tip">
-            📱 完全匿名，无需登录，所有设备均可使用
+            📱 推荐使用 Chrome 或 Safari 浏览器访问
         </div>
-        <div id="loginStatus" class="status-bar">✅ 已就绪，可以匿名发言</div>
-        <div class="admin-panel" id="adminPanel" style="text-align:center; margin-bottom:0.5rem;">
-            <button id="adminModeBtn" class="admin-btn">🔓 管理员模式</button>
-        </div>
+        <div id="statusBar" class="status-bar">⏳ 初始化中...</div>
+        <div id="adminPanel" class="admin-panel" style="display: none;"></div>
         <textarea id="newLetter" rows="3" placeholder="写下你想说的话...（匿名）"></textarea>
         <button id="postLetterBtn">📨 发布信件</button>
     </div>
     <div id="lettersContainer"></div>
-    <footer>✨ 所有内容匿名，请友善发言 ✨<br>你可以删除自己发布的信件，管理员可以删除任意信件。</footer>
+    <footer>✨ 所有内容匿名，请友善发言 | 只有管理员可删除内容 ✨</footer>
 </div>
 
 <script>
@@ -60,45 +58,53 @@
         projectId: "xinxiang1-2e2a7",
         storageBucket: "xinxiang1-2e2a7.firebasestorage.app",
         messagingSenderId: "56801188595",
-        appId: "1:56801188595:web:d8f83456808ef22b647586",
-        measurementId: "G-P8L8J2HEK5"
+        appId: "1:56801188595:web:d8f83456808ef22b647586"
     };
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
-    
-    // 生成或获取本地唯一标识（替代 uid）
-    let deviceId = localStorage.getItem('zaizai_device_id');
+
+    // ========== 设备ID (代替用户登录) ==========
+    let deviceId = localStorage.getItem('deviceId');
     if (!deviceId) {
-        deviceId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 16);
-        localStorage.setItem('zaizai_device_id', deviceId);
+        deviceId = 'device_' + Math.random().toString(36).substr(2, 16) + '_' + Date.now();
+        localStorage.setItem('deviceId', deviceId);
     }
-    
-    let isAdmin = false;  // 通过管理员密码验证后变为 true
-    const adminPassword = "zaizai2026";
-    
-    const statusDiv = document.getElementById('loginStatus');
-    statusDiv.innerHTML = `✅ 你的匿名ID: ${deviceId.substr(0,8)}... 可以发言`;
-    
-    // 管理员模式按钮
-    document.getElementById('adminModeBtn').addEventListener('click', () => {
+
+    let isAdmin = false;
+    const ADMIN_PASSWORD = "zaizai2026";  // 管理员密码
+
+    const statusDiv = document.getElementById('statusBar');
+    const adminPanelDiv = document.getElementById('adminPanel');
+
+    // 检查当前设备是否为管理员
+    database.ref(`admins/${deviceId}`).once('value').then(snap => {
+        isAdmin = snap.exists();
         if (isAdmin) {
-            isAdmin = false;
-            document.getElementById('adminModeBtn').textContent = '🔓 管理员模式';
-            alert('已退出管理员模式');
-            renderLetters(); // 重新渲染，隐藏删除按钮
+            adminPanelDiv.style.display = 'block';
+            adminPanelDiv.innerHTML = '<button id="adminModeBtn" class="admin-btn">🔓 管理员模式已开启</button>';
+            statusDiv.innerHTML = '✅ 已识别为管理员，可以删除信件和评论';
+            statusDiv.style.backgroundColor = '#e6f7e6';
         } else {
-            const pwd = prompt("请输入管理员密码");
-            if (pwd === adminPassword) {
-                isAdmin = true;
-                document.getElementById('adminModeBtn').textContent = '🔒 管理员模式已开启';
-                renderLetters(); // 重新渲染，显示所有删除按钮
-                alert('管理员模式已开启，你可以删除任何信件');
-            } else {
-                alert("密码错误");
-            }
+            adminPanelDiv.style.display = 'block';
+            adminPanelDiv.innerHTML = `<button id="becomeAdminBtn" class="admin-btn">🔑 成为管理员</button>`;
+            statusDiv.innerHTML = '✅ 匿名模式，可发布信件和评论';
+            statusDiv.style.backgroundColor = '#e6f7e6';
+            document.getElementById('becomeAdminBtn')?.addEventListener('click', () => {
+                const pwd = prompt("请输入管理员密码");
+                if (pwd === ADMIN_PASSWORD) {
+                    database.ref(`admins/${deviceId}`).set(true).then(() => {
+                        alert("你已成为管理员，刷新页面后生效");
+                        location.reload();
+                    });
+                } else alert("密码错误");
+            });
         }
+    }).catch(err => {
+        console.error(err);
+        statusDiv.innerHTML = '⚠️ 连接数据库失败，请刷新重试';
+        statusDiv.style.backgroundColor = '#fee2e2';
     });
-    
+
     // 发布信件
     document.getElementById('postLetterBtn').addEventListener('click', async () => {
         const content = document.getElementById('newLetter').value.trim();
@@ -106,12 +112,12 @@
         const newLetterRef = database.ref('letters').push();
         await newLetterRef.set({
             content: content,
-            userId: deviceId,   // 用 deviceId 标识作者
+            userId: deviceId,
             timestamp: Date.now()
         });
         document.getElementById('newLetter').value = '';
     });
-    
+
     // 添加评论
     async function addComment(letterId, commentText) {
         if (!commentText.trim()) return;
@@ -122,116 +128,110 @@
             timestamp: Date.now()
         });
     }
-    
-    // 删除信件
-    async function deleteLetter(letterId, letterUserId) {
-        // 如果是管理员 或者 作者本人
-        if (!isAdmin && letterUserId !== deviceId) {
-            alert("你没有权限删除此信件");
+
+    // 删除信件（仅管理员）
+    async function deleteLetter(letterId) {
+        if (!isAdmin) {
+            alert("只有管理员可以删除信件");
             return;
         }
         if (confirm("确定删除这封信件吗？")) {
             await database.ref(`letters/${letterId}`).remove();
         }
     }
-    
-    // 渲染信件列表
-    function renderLetters() {
+
+    // 删除评论（仅管理员）
+    async function deleteComment(letterId, commentId) {
+        if (!isAdmin) {
+            alert("只有管理员可以删除评论");
+            return;
+        }
+        if (confirm("确定删除这条评论吗？")) {
+            await database.ref(`letters/${letterId}/comments/${commentId}`).remove();
+        }
+    }
+
+    // 实时渲染信件列表
+    const lettersRef = database.ref('letters');
+    lettersRef.on('value', (snapshot) => {
+        const letters = snapshot.val();
         const container = document.getElementById('lettersContainer');
-        const lettersRef = database.ref('letters');
-        lettersRef.once('value', (snapshot) => {
-            const letters = snapshot.val();
-            if (!letters) {
-                container.innerHTML = '<div class="card" style="text-align:center;">✨ 还没有信件，来当第一个树洞吧 ✨</div>';
-                return;
-            }
-            const lettersArray = Object.entries(letters).map(([id, data]) => ({ id, ...data }));
-            lettersArray.sort((a,b) => b.timestamp - a.timestamp);
-            let html = '';
-            for (let letter of lettersArray) {
-                const date = new Date(letter.timestamp).toLocaleString();
-                const comments = letter.comments ? Object.entries(letter.comments).map(([cid, cmt]) => ({ id: cid, ...cmt })).sort((a,b)=>a.timestamp - b.timestamp) : [];
-                let commentsHtml = '';
-                comments.forEach(cmt => {
-                    const cmtDate = new Date(cmt.timestamp).toLocaleString();
-                    commentsHtml += `
-                        <div class="comment">
-                            <div class="comment-meta">匿名 · ${cmtDate}</div>
-                            <div>${escapeHtml(cmt.content)}</div>
-                        </div>
-                    `;
-                });
-                // 删除按钮显示条件：管理员 或 作者本人
-                const showDelete = (isAdmin || letter.userId === deviceId) 
-                    ? `<button class="delete-btn" data-id="${letter.id}" data-userid="${letter.userId}">🗑️ 删除</button>` 
-                    : '';
-                html += `
-                    <div class="letter" data-id="${letter.id}">
-                        <div class="letter-header">
-                            <span>📝 匿名 · ${date}</span>
-                            ${showDelete}
-                        </div>
-                        <div class="letter-content">${escapeHtml(letter.content)}</div>
-                        <div class="comments-section">
-                            ${commentsHtml}
-                            <div class="add-comment">
-                                <input type="text" placeholder="写一条评论..." id="commentInput_${letter.id}">
-                                <button class="comment-submit" data-id="${letter.id}">💬 评论</button>
-                            </div>
-                        </div>
+        if (!letters) {
+            container.innerHTML = '<div class="card" style="text-align:center;">✨ 还没有信件，来当第一个树洞吧 ✨</div>';
+            return;
+        }
+        const lettersArray = Object.entries(letters).map(([id, data]) => ({ id, ...data }));
+        lettersArray.sort((a,b) => b.timestamp - a.timestamp);
+        let html = '';
+        for (let letter of lettersArray) {
+            const date = new Date(letter.timestamp).toLocaleString();
+            const comments = letter.comments ? Object.entries(letter.comments).map(([cid, cmt]) => ({ id: cid, ...cmt })).sort((a,b)=>a.timestamp - b.timestamp) : [];
+            let commentsHtml = '';
+            comments.forEach(cmt => {
+                const cmtDate = new Date(cmt.timestamp).toLocaleString();
+                // 评论删除按钮：仅管理员可见
+                const showCommentDelete = isAdmin ? `<button class="delete-comment-btn" data-letterid="${letter.id}" data-commentid="${cmt.id}" style="background:#fee2e2; color:#e5484d; border:none; border-radius:1rem; padding:0.1rem 0.4rem; font-size:0.6rem; margin-left:0.5rem; cursor:pointer;">删</button>` : '';
+                commentsHtml += `
+                    <div class="comment">
+                        <div class="comment-meta">匿名 · ${cmtDate}${showCommentDelete}</div>
+                        <div>${escapeHtml(cmt.content)}</div>
                     </div>
                 `;
-            }
-            container.innerHTML = html;
-            
-            // 绑定删除按钮事件
-            document.querySelectorAll('.delete-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const letterId = btn.getAttribute('data-id');
-                    const letterUserId = btn.getAttribute('data-userid');
-                    deleteLetter(letterId, letterUserId);
-                });
             });
-            // 绑定评论提交事件
-            document.querySelectorAll('.comment-submit').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const letterId = btn.getAttribute('data-id');
-                    const input = document.getElementById(`commentInput_${letterId}`);
-                    const text = input.value.trim();
-                    if (text) {
-                        addComment(letterId, text);
-                        input.value = '';
-                        // 评论后延迟重新渲染以便看到新评论（但实时性可以用监听，为简单起见，评论后重新渲染）
-                        setTimeout(() => renderLetters(), 500);
-                    } else alert("评论不能为空");
-                });
+            // 信件删除按钮：仅管理员可见
+            const showDelete = isAdmin ? `<button class="delete-letter-btn" data-id="${letter.id}" style="background:#fee2e2; color:#e5484d; border:none; border-radius:1rem; padding:0.2rem 0.6rem; cursor:pointer; font-size:0.7rem;">🗑️ 删除</button>` : '';
+            html += `
+                <div class="letter" data-id="${letter.id}">
+                    <div class="letter-header">
+                        <span>📝 匿名 · ${date}</span>
+                        ${showDelete}
+                    </div>
+                    <div class="letter-content">${escapeHtml(letter.content)}</div>
+                    <div class="comments-section">
+                        ${commentsHtml}
+                        <div class="add-comment">
+                            <input type="text" placeholder="写一条评论..." id="commentInput_${letter.id}">
+                            <button class="comment-submit" data-id="${letter.id}">💬 评论</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        container.innerHTML = html;
+
+        // 绑定信件删除事件
+        document.querySelectorAll('.delete-letter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const letterId = btn.getAttribute('data-id');
+                deleteLetter(letterId);
             });
         });
-    }
-    
-    // 监听数据库变化实时更新（可选，但为了简单，每次操作后重新渲染）
-    // 我们可以在每次增删改后主动调用 renderLetters()
-    // 同时为了实时看到他人更新，可以设置定时刷新
-    function autoRefresh() {
-        renderLetters();
-        setTimeout(autoRefresh, 5000); // 每5秒刷新一次
-    }
-    autoRefresh();
-    
-    // 手动重写删除和评论后，也需要刷新，已经在上面的回调中调用 renderLetters()
-    // 但发布信件后也需要刷新
-    const originalPost = document.getElementById('postLetterBtn').onclick;
-    document.getElementById('postLetterBtn').addEventListener('click', () => {
-        setTimeout(() => renderLetters(), 500);
+        // 绑定评论删除事件
+        document.querySelectorAll('.delete-comment-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const letterId = btn.getAttribute('data-letterid');
+                const commentId = btn.getAttribute('data-commentid');
+                deleteComment(letterId, commentId);
+            });
+        });
+        // 绑定评论提交事件
+        document.querySelectorAll('.comment-submit').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const letterId = btn.getAttribute('data-id');
+                const input = document.getElementById(`commentInput_${letterId}`);
+                const text = input.value.trim();
+                if (text) {
+                    addComment(letterId, text);
+                    input.value = '';
+                } else alert("评论不能为空");
+            });
+        });
     });
-    
+
     function escapeHtml(str) {
         if (!str) return '';
         return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
     }
-    
-    // 初始渲染
-    renderLetters();
 </script>
 </body>
 </html>
