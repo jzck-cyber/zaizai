@@ -7,12 +7,12 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
-        /* 样式保持不变，与之前相同 */
         *{margin:0;padding:0;box-sizing:border-box;}
         body{font-family: system-ui;background: linear-gradient(145deg, #f9f0f4, #ffe6ef);padding: 2rem 1rem;color:#2c1e2a;}
         .container{max-width:800px;margin:0 auto;}
         .card{background:rgba(255,255,255,0.9);backdrop-filter:blur(2px);border-radius:2rem;padding:1.5rem;margin-bottom:1.5rem;box-shadow:0 15px 30px -12px rgba(0,0,0,0.1);border:1px solid #ffecf2;}
-        h1{font-size:2rem;background:linear-gradient(135deg,#d96c8c,#b84c6c);background-clip:text;-webkit-background-clip:text;color:transparent;margin-bottom:0.5rem;}
+        h1{font-size:2rem;background:linear-gradient(135deg,#d96c8c,#b84c6c);background-clip:text;-webkit-background-clip:text;color:transparent;margin-bottom:0.5rem;display:inline-block;}
+        .header-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:0.5rem;}
         .sub{color:#9e7a8a;margin-bottom:1.5rem;}
         textarea{width:100%;padding:0.8rem;border-radius:1.5rem;border:1px solid #f5cfdf;font-family:inherit;resize:vertical;}
         button{background:#e8a0bb;color:white;border:none;padding:0.6rem 1.2rem;border-radius:2rem;cursor:pointer;margin-top:0.5rem;}
@@ -26,41 +26,39 @@
         .comment-meta{font-size:0.65rem;color:#c28aa0;margin-bottom:0.2rem;}
         .add-comment{display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;}
         .add-comment input{flex:1;padding:0.4rem 0.8rem;border-radius:2rem;border:1px solid #f5cfdf;}
-        .admin-panel{text-align:right;margin-bottom:1rem;}
-        .admin-btn{background:#cdb5c2;font-size:0.7rem;padding:0.2rem 0.8rem;}
-        .status-bar{background:#f5f0f2;padding:0.3rem 0.8rem;border-radius:2rem;font-size:0.7rem;display:inline-block;margin-bottom:1rem;}
+        .admin-status{background:#f5f0f2;padding:0.3rem 0.8rem;border-radius:2rem;font-size:0.7rem;display:inline-block;margin-bottom:0.5rem;}
+        .status-bar{background:#f5f0f2;padding:0.3rem 0.8rem;border-radius:2rem;font-size:0.7rem;display:inline-block;margin-bottom:0.5rem;}
         .browser-tip{background:#fff0f5;border-radius:1rem;padding:0.5rem;margin-bottom:1rem;text-align:center;font-size:0.8rem;}
         footer{text-align:center;margin-top:2rem;font-size:0.7rem;color:#b28aa0;}
-        .modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:1000; }
-        .modal-overlay.active { display: flex; }
-        .modal-box { background:white; border-radius:2rem; padding:2rem; max-width:500px; width:90%; box-shadow:0 20px 35px -12px rgba(0,0,0,0.3); position:relative; }
-        .modal-box h2 { margin-bottom:1rem; color:#d96c8c; }
-        .modal-box textarea { min-height:120px; }
-        .modal-close { position:absolute; top:0.5rem; right:1rem; font-size:1.5rem; cursor:pointer; color:#b28aa0; background:none; border:none; }
-        .private-letter-item { background:#fdf5f8; border-radius:1rem; padding:0.8rem; margin-bottom:0.8rem; border-left:3px solid #d96c8c; }
-        .private-letter-meta { font-size:0.7rem; color:#b28aa0; margin-bottom:0.3rem; }
-        .private-letter-content { font-size:0.9rem; word-break:break-word; }
+        .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);justify-content:center;align-items:center;z-index:1000;}
+        .modal-overlay.active{display:flex;}
+        .modal-box{background:white;border-radius:2rem;padding:2rem;max-width:500px;width:90%;box-shadow:0 20px 35px -12px rgba(0,0,0,0.3);position:relative;}
+        .modal-box h2{margin-bottom:1rem;color:#d96c8c;}
+        .modal-box textarea{min-height:120px;}
+        .modal-close{position:absolute;top:0.5rem;right:1rem;font-size:1.5rem;cursor:pointer;color:#b28aa0;background:none;border:none;}
+        .private-letter-item{background:#fdf5f8;border-radius:1rem;padding:0.8rem;margin-bottom:0.8rem;border-left:3px solid #d96c8c;}
+        .private-letter-meta{font-size:0.7rem;color:#b28aa0;margin-bottom:0.3rem;}
+        .private-letter-content{font-size:0.9rem;word-break:break-word;}
+        .btn-private{background:#b84c6c;}
     </style>
 </head>
 <body>
 <div class="container">
     <div class="card">
-        <h1>📬 崽崽的树洞信箱</h1>
-        <div class="sub">匿名倾诉，温暖回响 | 管理员每次进入需验证</div>
+        <div class="header-row">
+            <h1>📬 崽崽的树洞信箱</h1>
+            <button id="openPrivateLetterBtn" class="btn-private" style="padding:0.4rem 1.2rem;">✉️ 写给崽崽的信</button>
+        </div>
+        <div class="sub">匿名倾诉，温暖回响</div>
         <div class="browser-tip">📱 推荐使用 Chrome 或 Safari 浏览器</div>
         <div id="statusBar" class="status-bar">⏳ 初始化中...</div>
-        <div id="adminPanel" class="admin-panel" style="display: none;">
-            <button id="adminModeBtn" class="admin-btn">🔓 管理员模式已开启</button>
-        </div>
-        <div style="text-align: right; margin-bottom: 1rem;">
-            <button id="openPrivateLetterBtn" style="background: #b84c6c; padding: 0.4rem 1.2rem;">✉️ 写给崽崽的信</button>
-        </div>
+        <div id="adminStatus" class="admin-status" style="display:none;">🔓 管理员模式已开启（本次会话）</div>
         <textarea id="newLetter" rows="3" placeholder="写下你想说的话...（匿名，公开可见）"></textarea>
         <button id="postLetterBtn">📨 发布信件</button>
     </div>
     <div id="lettersContainer"></div>
-    <div id="privateLettersContainer" style="display: none;"></div>
-    <footer>✨ 所有内容匿名，请友善发言 | 管理员需每次验证 ✨</footer>
+    <div id="privateLettersContainer" style="display:none;"></div>
+    <footer>✨ 所有内容匿名，请友善发言 | 管理员每次进入需验证 ✨</footer>
 </div>
 
 <!-- 私信模态框 -->
@@ -97,44 +95,32 @@
     }
 
     let isAdmin = false;
-    const ADMIN_PASSWORD = "zaizai2026";  // 修改为你想要的密码
+    const ADMIN_PASSWORD = "zaizai2026";
 
     const statusDiv = document.getElementById('statusBar');
-    const adminPanelDiv = document.getElementById('adminPanel');
+    const adminStatusDiv = document.getElementById('adminStatus');
 
-    // ====== 核心改动：每次进入都弹出密码验证 ======
+    // ====== 管理员验证 ======
     function verifyAdmin() {
         const pwd = prompt("请输入管理员密码（每次进入都需要验证）：");
         if (pwd === ADMIN_PASSWORD) {
             isAdmin = true;
-            adminPanelDiv.style.display = 'block';
-            adminPanelDiv.innerHTML = '<button id="adminModeBtn" class="admin-btn">🔓 管理员模式已开启（本次会话）</button>';
-            statusDiv.innerHTML = '✅ 管理员验证通过，可以删除信件和评论，并可查看私信';
+            adminStatusDiv.style.display = 'inline-block';
+            statusDiv.innerHTML = '✅ 管理员验证通过，可管理所有内容';
             statusDiv.style.backgroundColor = '#e6f7e6';
             document.getElementById('privateLettersContainer').style.display = 'block';
-            // 重新渲染私信列表（因为之前可能已加载但未显示）
-            // 但我们已经用 isAdmin 控制了显示，刷新会重新加载
         } else {
-            // 密码错误或取消
             isAdmin = false;
-            adminPanelDiv.style.display = 'none';
-            statusDiv.innerHTML = '✅ 普通匿名模式（输入密码可成为管理员）';
+            adminStatusDiv.style.display = 'none';
+            statusDiv.innerHTML = '✅ 普通匿名模式（刷新页面可重新验证）';
             statusDiv.style.backgroundColor = '#e6f7e6';
             document.getElementById('privateLettersContainer').style.display = 'none';
-            // 如果用户想重试，可以提供一个重新验证的按钮？
-            // 我们可以添加一个“重新验证”按钮到 adminPanel，但为了简洁，这里用 alert 提示
-            alert('密码错误，将以普通用户身份访问。如需重试，请刷新页面。');
+            if (pwd !== null) alert('密码错误，将以普通用户身份访问。如需重试，请刷新页面。');
         }
     }
-
-    // 页面加载时执行验证
     verifyAdmin();
 
-    // 可选：提供“重新验证”按钮，点击后重新弹窗
-    // 我们可以将 adminPanel 设置为一个可点击重新验证的按钮，但这里已不再需要“成为管理员”按钮
-
-    // ====== 以下功能保持不变（公开信件、评论、私信发送和查看） ======
-    // 发布公开信件
+    // ====== 公开信件功能 ======
     document.getElementById('postLetterBtn').addEventListener('click', async () => {
         const content = document.getElementById('newLetter').value.trim();
         if (!content) return alert("请填写内容");
@@ -147,7 +133,6 @@
         document.getElementById('newLetter').value = '';
     });
 
-    // 添加评论
     async function addComment(letterId, commentText) {
         if (!commentText.trim()) return;
         const commentRef = database.ref(`letters/${letterId}/comments`).push();
@@ -158,29 +143,21 @@
         });
     }
 
-    // 删除公开信件（仅管理员）
     async function deleteLetter(letterId) {
-        if (!isAdmin) {
-            alert("只有管理员可以删除信件");
-            return;
-        }
+        if (!isAdmin) { alert("只有管理员可以删除信件"); return; }
         if (confirm("确定删除这封信件吗？")) {
             await database.ref(`letters/${letterId}`).remove();
         }
     }
 
-    // 删除评论（仅管理员）
     async function deleteComment(letterId, commentId) {
-        if (!isAdmin) {
-            alert("只有管理员可以删除评论");
-            return;
-        }
+        if (!isAdmin) { alert("只有管理员可以删除评论"); return; }
         if (confirm("确定删除这条评论吗？")) {
             await database.ref(`letters/${letterId}/comments/${commentId}`).remove();
         }
     }
 
-    // 私信相关（与之前相同）
+    // ====== 私信功能 ======
     document.getElementById('openPrivateLetterBtn').addEventListener('click', () => {
         document.getElementById('privateLetterModal').classList.add('active');
         document.getElementById('privateLetterContent').value = '';
@@ -222,7 +199,7 @@
         }
     });
 
-    // 管理员读取私信列表（实时）
+    // ====== 管理员查看私信 ======
     const privateLettersRef = database.ref('privateLetters');
     privateLettersRef.on('value', (snapshot) => {
         const privateLetters = snapshot.val();
@@ -271,7 +248,7 @@
         });
     });
 
-    // 公开信件渲染
+    // ====== 公开信件渲染 ======
     const lettersRef = database.ref('letters');
     lettersRef.on('value', (snapshot) => {
         const letters = snapshot.val();
