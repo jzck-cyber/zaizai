@@ -17,6 +17,7 @@
         textarea{width:100%;padding:0.8rem;border-radius:1.5rem;border:1px solid #f5cfdf;font-family:inherit;resize:vertical;}
         button{background:#e8a0bb;color:white;border:none;padding:0.6rem 1.2rem;border-radius:2rem;cursor:pointer;margin-top:0.5rem;}
         button:hover{background:#d47a9e;}
+        button:disabled{opacity:0.6;cursor:not-allowed;}
         .letter{background:white;border-radius:1.2rem;padding:1rem;margin-bottom:1.2rem;}
         .letter-header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;margin-bottom:0.5rem;font-size:0.75rem;color:#b28aa0;}
         .letter-content{font-size:0.95rem;margin:0.5rem 0;white-space:pre-wrap;word-break:break-word;}
@@ -42,13 +43,13 @@
         .private-letter-content{font-size:0.9rem;word-break:break-word;}
         .btn-private{background:#b84c6c;}
         .admin-status{background:#e6f7e6;padding:0.3rem 0.8rem;border-radius:2rem;font-size:0.7rem;display:inline-block;margin-bottom:0.5rem;color:#2e7d32;}
-        #errorLog{background:#fee2e2;color:#c62828;padding:0.5rem 1rem;border-radius:1rem;margin-bottom:1rem;border:1px solid #ef9a9a;display:none;}
-        .error-item{font-size:0.8rem;margin:0.2rem 0;word-break:break-word;}
+        .loading-placeholder{color:#b28aa0;text-align:center;padding:2rem;}
+        .error-placeholder{color:#c62828;text-align:center;padding:2rem;}
+        .update-badge{font-size:0.6rem;color:#9e7a8a;margin-left:0.5rem;}
     </style>
 </head>
 <body>
 <div class="container">
-    <div id="errorLog"></div>
     <div class="card">
         <div class="header-row">
             <h1>📬 崽崽的树洞信箱</h1>
@@ -64,11 +65,19 @@
         <textarea id="newLetter" rows="3" placeholder="写下你想说的话...（匿名，公开可见）"></textarea>
         <button id="postLetterBtn">📨 发布信件</button>
     </div>
-    <div id="lettersContainer"></div>
+
+    <!-- 公开留言板 -->
+    <div id="lettersContainer">
+        <div class="card loading-placeholder">⏳ 加载留言中，请稍候...</div>
+    </div>
+
+    <!-- 私信列表 -->
     <div id="privateLettersContainer" style="display:none;"></div>
+
     <footer>✨ 所有内容匿名，请友善发言✨</footer>
 </div>
 
+<!-- 私信模态框 -->
 <div class="modal-overlay" id="privateLetterModal">
     <div class="modal-box">
         <button class="modal-close" id="closePrivateModal">&times;</button>
@@ -81,27 +90,6 @@
 </div>
 
 <script>
-    // 全局错误捕获，显示在页面顶部
-    window.onerror = function(msg, url, line, col, error) {
-        const log = document.getElementById('errorLog');
-        log.style.display = 'block';
-        const div = document.createElement('div');
-        div.className = 'error-item';
-        div.textContent = '错误: ' + msg + ' (行 ' + line + ')';
-        log.appendChild(div);
-        console.error('全局捕获:', msg, url, line, col, error);
-        return true;
-    };
-    window.addEventListener('unhandledrejection', event => {
-        const log = document.getElementById('errorLog');
-        log.style.display = 'block';
-        const div = document.createElement('div');
-        div.className = 'error-item';
-        div.textContent = 'Promise错误: ' + event.reason;
-        log.appendChild(div);
-        console.error('未处理Promise拒绝:', event.reason);
-    });
-
     // ========== Firebase 配置 ==========
     const firebaseConfig = {
         apiKey: "AIzaSyDW-Ix5Foerv-5A8M2-u1wabvb9Fai0wqU",
@@ -127,7 +115,173 @@
     const adminStatusDiv = document.getElementById('adminStatus');
     const adminPanelDiv = document.getElementById('adminPanel');
     const privateContainer = document.getElementById('privateLettersContainer');
+    const lettersContainer = document.getElementById('lettersContainer');
 
+    // ========== 渲染函数（公开信件） ==========
+    function renderLetters(letters, isCached = false) {
+        if (!letters) {
+            lettersContainer.innerHTML = '<div class="card" style="text-align:center;">✨ 还没有信件，来当第一个树洞吧 ✨</div>';
+            return;
+        }
+        const list = Object.entries(letters).map(([id, data]) => ({ id, ...data })).sort((a,b) => b.timestamp - a.timestamp);
+        let html = '';
+        list.forEach(letter => {
+            const date = new Date(letter.timestamp).toLocaleString();
+            const comments = letter.comments ? Object.entries(letter.comments).map(([cid, cmt]) => ({ id: cid, ...cmt })).sort((a,b)=>a.timestamp - b.timestamp) : [];
+            let commentsHtml = comments.map(cmt => `
+                <div class="comment">
+                    <div class="comment-meta">匿名 · ${new Date(cmt.timestamp).toLocaleString()}
+                        ${isAdmin ? `<button class="delete-comment-btn" data-letterid="${letter.id}" data-commentid="${cmt.id}" style="background:#fee2e2; color:#e5484d; border:none; border-radius:1rem; padding:0.1rem 0.4rem; font-size:0.6rem; margin-left:0.5rem; cursor:pointer;">删</button>` : ''}
+                    </div>
+                    <div>${escapeHtml(cmt.content)}</div>
+                </div>
+            `).join('');
+            html += `
+                <div class="letter">
+                    <div class="letter-header">
+                        <span>📝 匿名 · ${date}</span>
+                        ${isAdmin ? `<button class="delete-letter-btn" data-id="${letter.id}" style="background:#fee2e2; color:#e5484d; border:none; border-radius:1rem; padding:0.2rem 0.6rem; cursor:pointer; font-size:0.7rem;">🗑️ 删除</button>` : ''}
+                    </div>
+                    <div class="letter-content">${escapeHtml(letter.content)}</div>
+                    <div class="comments-section">
+                        ${commentsHtml}
+                        <div class="add-comment">
+                            <input type="text" placeholder="写一条评论..." id="commentInput_${letter.id}">
+                            <button class="comment-submit" data-id="${letter.id}">💬 评论</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        // 缓存标记
+        const cacheTag = isCached ? ' <span class="update-badge">📶 来自缓存</span>' : '';
+        lettersContainer.innerHTML = html + `<div style="text-align:center; font-size:0.6rem; color:#b28aa0; margin-top:0.5rem;">${isCached ? '⚡ 秒开（正在后台检查更新...）' : '✅ 已同步最新'}</div>`;
+        
+        // 绑定事件
+        document.querySelectorAll('.delete-letter-btn').forEach(btn => {
+            btn.addEventListener('click', () => deleteLetter(btn.getAttribute('data-id')));
+        });
+        document.querySelectorAll('.delete-comment-btn').forEach(btn => {
+            btn.addEventListener('click', () => deleteComment(btn.getAttribute('data-letterid'), btn.getAttribute('data-commentid')));
+        });
+        document.querySelectorAll('.comment-submit').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                const input = document.getElementById(`commentInput_${id}`);
+                const text = input.value.trim();
+                if (text) { addComment(id, text); input.value = ''; } else alert("评论不能为空");
+            });
+        });
+    }
+
+    // ========== 带超时的写入函数 ==========
+    function pushWithTimeout(ref, data, timeoutMs = 15000) {
+        return new Promise((resolve, reject) => {
+            const newRef = ref.push();
+            const timeoutId = setTimeout(() => {
+                reject(new Error('写入超时，请检查网络'));
+            }, timeoutMs);
+            newRef.set(data)
+                .then(result => { clearTimeout(timeoutId); resolve(result); })
+                .catch(err => { clearTimeout(timeoutId); reject(err); });
+        });
+    }
+
+    // ====== 加载数据（先读缓存，再联网更新） ======
+    function loadData() {
+        // 先读缓存
+        const cached = localStorage.getItem('cached_letters');
+        if (cached) {
+            try {
+                const data = JSON.parse(cached);
+                renderLetters(data, true);
+                statusDiv.innerHTML = '📶 已加载缓存，正在同步最新...';
+                statusDiv.style.backgroundColor = '#f5f0f2';
+            } catch(e) {}
+        } else {
+            lettersContainer.innerHTML = '<div class="card loading-placeholder">⏳ 首次加载，请稍候...</div>';
+        }
+
+        // 联网更新
+        database.ref('letters').once('value').then(snapshot => {
+            const letters = snapshot.val();
+            localStorage.setItem('cached_letters', JSON.stringify(letters));
+            renderLetters(letters, false);
+            statusDiv.innerHTML = '✅ 已同步最新内容';
+            statusDiv.style.backgroundColor = '#e6f7e6';
+        }).catch(err => {
+            console.error('加载失败', err);
+            if (!localStorage.getItem('cached_letters')) {
+                lettersContainer.innerHTML = `<div class="card error-placeholder">⚠️ 加载失败，请检查网络后刷新</div>`;
+            }
+            statusDiv.innerHTML = '⚠️ 网络连接失败，显示缓存内容';
+            statusDiv.style.backgroundColor = '#fee2e2';
+        });
+    }
+
+    // ========== 管理员验证 ==========
+    document.getElementById('becomeAdminBtn').addEventListener('click', () => {
+        const pwd = prompt("请输入管理员密码：");
+        if (pwd === ADMIN_PASSWORD) {
+            isAdmin = true;
+            adminStatusDiv.style.display = 'inline-block';
+            adminPanelDiv.innerHTML = `<button id="exitAdminBtn" class="admin-btn">🔒 退出管理员</button>`;
+            document.getElementById('exitAdminBtn').addEventListener('click', () => {
+                isAdmin = false;
+                adminStatusDiv.style.display = 'none';
+                adminPanelDiv.innerHTML = `<button id="becomeAdminBtn" class="admin-btn">🔑 成为管理员</button>`;
+                privateContainer.style.display = 'none';
+                document.getElementById('becomeAdminBtn').addEventListener('click', arguments.callee);
+                statusDiv.innerHTML = '✅ 已退出管理员模式';
+                statusDiv.style.backgroundColor = '#e6f7e6';
+                // 重新渲染公开信件（移除删除按钮）
+                const cached = localStorage.getItem('cached_letters');
+                if (cached) renderLetters(JSON.parse(cached), true);
+            });
+            statusDiv.innerHTML = '✅ 管理员验证通过，可管理所有内容';
+            statusDiv.style.backgroundColor = '#e6f7e6';
+            privateContainer.style.display = 'block';
+            privateContainer.innerHTML = '<div class="card loading-placeholder">⏳ 加载私信中...</div>';
+            database.ref('privateLetters').once('value').then(snapshot => {
+                renderPrivateLetters(snapshot);
+            }).catch(err => {
+                privateContainer.innerHTML = `<div class="card error-placeholder">加载私信失败: ${err.message}</div>`;
+                privateContainer.style.display = 'block';
+            });
+
+            // ====== 关键修复：立即刷新公开信件，让删除按钮出现 ======
+            const cached = localStorage.getItem('cached_letters');
+            if (cached) {
+                try {
+                    renderLetters(JSON.parse(cached), true);
+                } catch(e) {}
+            }
+            // 同时也从 Firebase 拉取最新数据以确保内容最新（但即使不拉取，删除按钮已出现）
+            database.ref('letters').once('value').then(snap => {
+                const letters = snap.val();
+                localStorage.setItem('cached_letters', JSON.stringify(letters));
+                renderLetters(letters, false);
+            }).catch(err => console.error('刷新公开信件失败', err));
+        } else {
+            alert('密码错误，请重试。');
+        }
+    });
+
+    // 初始状态
+    statusDiv.innerHTML = '📶 加载中...';
+    adminStatusDiv.style.display = 'none';
+    privateContainer.style.display = 'none';
+
+    // 执行加载
+    loadData();
+
+    // 实时监听私信（仅管理员可见）
+    database.ref('privateLetters').on('value', snapshot => {
+        if (isAdmin) renderPrivateLetters(snapshot);
+        else privateContainer.style.display = 'none';
+    });
+
+    // ========== 私信渲染函数 ==========
     function renderPrivateLetters(snapshot) {
         const privateLetters = snapshot.val();
         privateContainer.innerHTML = '';
@@ -172,69 +326,89 @@
         });
     }
 
-    document.getElementById('becomeAdminBtn').addEventListener('click', () => {
-        const pwd = prompt("请输入管理员密码：");
-        if (pwd === ADMIN_PASSWORD) {
-            isAdmin = true;
-            adminStatusDiv.style.display = 'inline-block';
-            adminPanelDiv.innerHTML = `<button id="exitAdminBtn" class="admin-btn">🔒 退出管理员</button>`;
-            document.getElementById('exitAdminBtn').addEventListener('click', () => {
-                isAdmin = false;
-                adminStatusDiv.style.display = 'none';
-                adminPanelDiv.innerHTML = `<button id="becomeAdminBtn" class="admin-btn">🔑 成为管理员</button>`;
-                privateContainer.style.display = 'none';
-                document.getElementById('becomeAdminBtn').addEventListener('click', arguments.callee);
-                statusDiv.innerHTML = '✅ 已退出管理员模式';
-                statusDiv.style.backgroundColor = '#e6f7e6';
-            });
-            statusDiv.innerHTML = '✅ 管理员验证通过，可管理所有内容';
-            statusDiv.style.backgroundColor = '#e6f7e6';
-            privateContainer.style.display = 'block';
-            database.ref('privateLetters').once('value').then(snapshot => renderPrivateLetters(snapshot))
-                .catch(err => {
-                    privateContainer.innerHTML = `<div class="card"><p style="color:red;">加载私信失败: ${err.message}</p></div>`;
-                    privateContainer.style.display = 'block';
-                });
-        } else {
-            alert('密码错误，请重试。');
-        }
-    });
-
-    statusDiv.innerHTML = '✅ 普通匿名模式（点击“成为管理员”可获取管理权限）';
-    statusDiv.style.backgroundColor = '#e6f7e6';
-    adminStatusDiv.style.display = 'none';
-    privateContainer.style.display = 'none';
-
-    // 实时监听私信
-    database.ref('privateLetters').on('value', snapshot => {
-        if (isAdmin) renderPrivateLetters(snapshot);
-        else privateContainer.style.display = 'none';
-    });
-
-    // 公开信件功能
+    // ========== 公开信件操作 ==========
     document.getElementById('postLetterBtn').addEventListener('click', async () => {
         const content = document.getElementById('newLetter').value.trim();
         if (!content) return alert("请填写内容");
-        await database.ref('letters').push({ content, userId: deviceId, timestamp: Date.now() });
-        document.getElementById('newLetter').value = '';
+        try {
+            await pushWithTimeout(database.ref('letters'), { content, userId: deviceId, timestamp: Date.now() });
+            document.getElementById('newLetter').value = '';
+            const snap = await database.ref('letters').once('value');
+            localStorage.setItem('cached_letters', JSON.stringify(snap.val()));
+            renderLetters(snap.val(), false);
+        } catch (err) {
+            alert("发布失败：" + err.message);
+        }
     });
 
     async function addComment(letterId, text) {
         if (!text.trim()) return;
-        await database.ref(`letters/${letterId}/comments`).push({ content: text, userId: deviceId, timestamp: Date.now() });
+        try {
+            await pushWithTimeout(database.ref(`letters/${letterId}/comments`), { content: text, userId: deviceId, timestamp: Date.now() });
+            const snap = await database.ref('letters').once('value');
+            localStorage.setItem('cached_letters', JSON.stringify(snap.val()));
+            renderLetters(snap.val(), false);
+        } catch (err) {
+            alert("评论失败：" + err.message);
+        }
     }
 
     async function deleteLetter(id) {
         if (!isAdmin) return alert("只有管理员可以删除信件");
-        if (confirm("确定删除这封信件吗？")) await database.ref(`letters/${id}`).remove();
+        if (confirm("确定删除这封信件吗？")) {
+            await database.ref(`letters/${id}`).remove();
+            const snap = await database.ref('letters').once('value');
+            localStorage.setItem('cached_letters', JSON.stringify(snap.val()));
+            renderLetters(snap.val(), false);
+        }
     }
 
     async function deleteComment(letterId, commentId) {
         if (!isAdmin) return alert("只有管理员可以删除评论");
-        if (confirm("确定删除这条评论吗？")) await database.ref(`letters/${letterId}/comments/${commentId}`).remove();
+        if (confirm("确定删除这条评论吗？")) {
+            await database.ref(`letters/${letterId}/comments/${commentId}`).remove();
+            const snap = await database.ref('letters').once('value');
+            localStorage.setItem('cached_letters', JSON.stringify(snap.val()));
+            renderLetters(snap.val(), false);
+        }
     }
 
-    // 私信模态框
+    // ====== 私信发送 ======
+    document.getElementById('sendPrivateLetterBtn').addEventListener('click', async () => {
+        const content = document.getElementById('privateLetterContent').value.trim();
+        const statusEl = document.getElementById('privateSendStatus');
+        const sendBtn = document.getElementById('sendPrivateLetterBtn');
+
+        if (!content) {
+            statusEl.innerHTML = '❌ 请填写内容';
+            statusEl.style.color = 'red';
+            return;
+        }
+
+        document.getElementById('privateLetterContent').value = '';
+        statusEl.innerHTML = '✅ 信件已寄出！💌';
+        statusEl.style.color = 'green';
+        sendBtn.disabled = true;
+        sendBtn.style.opacity = '0.6';
+
+        try {
+            await pushWithTimeout(database.ref('privateLetters'), { content, userId: deviceId, timestamp: Date.now() }, 15000);
+        } catch (err) {
+            statusEl.innerHTML = '❌ 发送失败 (' + err.message + ') 点击重试';
+            statusEl.style.color = 'red';
+            sendBtn.disabled = false;
+            sendBtn.style.opacity = '1';
+        } finally {
+            if (!statusEl.innerHTML.includes('失败')) {
+                sendBtn.disabled = false;
+                sendBtn.style.opacity = '1';
+                statusEl.innerHTML = '✅ 已发送！继续写下一封吧 💌';
+                statusEl.style.color = 'green';
+            }
+        }
+    });
+
+    // ====== 模态框 ======
     document.getElementById('openPrivateLetterBtn').addEventListener('click', () => {
         document.getElementById('privateLetterModal').classList.add('active');
         document.getElementById('privateLetterContent').value = '';
@@ -245,84 +419,6 @@
     });
     document.getElementById('privateLetterModal').addEventListener('click', (e) => {
         if (e.target === e.currentTarget) document.getElementById('privateLetterModal').classList.remove('active');
-    });
-
-    document.getElementById('sendPrivateLetterBtn').addEventListener('click', async () => {
-        const content = document.getElementById('privateLetterContent').value.trim();
-        if (!content) {
-            document.getElementById('privateSendStatus').innerHTML = '❌ 请填写内容';
-            document.getElementById('privateSendStatus').style.color = 'red';
-            return;
-        }
-        const statusEl = document.getElementById('privateSendStatus');
-        statusEl.innerHTML = '⏳ 发送中...';
-        statusEl.style.color = '#9e7a8a';
-        try {
-            await database.ref('privateLetters').push({ content, userId: deviceId, timestamp: Date.now() });
-            statusEl.innerHTML = '✅ 已发送！';
-            statusEl.style.color = 'green';
-            document.getElementById('privateLetterContent').value = '';
-        } catch (err) {
-            statusEl.innerHTML = '❌ 发送失败，请重试';
-            statusEl.style.color = 'red';
-            console.error(err);
-        }
-    });
-
-    // 公开信件渲染
-    database.ref('letters').on('value', snapshot => {
-        const letters = snapshot.val();
-        const container = document.getElementById('lettersContainer');
-        if (!letters) {
-            container.innerHTML = '<div class="card" style="text-align:center;">✨ 还没有信件，来当第一个树洞吧 ✨</div>';
-            return;
-        }
-        const list = Object.entries(letters).map(([id, data]) => ({ id, ...data })).sort((a,b) => b.timestamp - a.timestamp);
-        let html = '';
-        list.forEach(letter => {
-            const date = new Date(letter.timestamp).toLocaleString();
-            const comments = letter.comments ? Object.entries(letter.comments).map(([cid, cmt]) => ({ id: cid, ...cmt })).sort((a,b)=>a.timestamp - b.timestamp) : [];
-            let commentsHtml = comments.map(cmt => `
-                <div class="comment">
-                    <div class="comment-meta">匿名 · ${new Date(cmt.timestamp).toLocaleString()}
-                        ${isAdmin ? `<button class="delete-comment-btn" data-letterid="${letter.id}" data-commentid="${cmt.id}" style="background:#fee2e2; color:#e5484d; border:none; border-radius:1rem; padding:0.1rem 0.4rem; font-size:0.6rem; margin-left:0.5rem; cursor:pointer;">删</button>` : ''}
-                    </div>
-                    <div>${escapeHtml(cmt.content)}</div>
-                </div>
-            `).join('');
-            html += `
-                <div class="letter">
-                    <div class="letter-header">
-                        <span>📝 匿名 · ${date}</span>
-                        ${isAdmin ? `<button class="delete-letter-btn" data-id="${letter.id}" style="background:#fee2e2; color:#e5484d; border:none; border-radius:1rem; padding:0.2rem 0.6rem; cursor:pointer; font-size:0.7rem;">🗑️ 删除</button>` : ''}
-                    </div>
-                    <div class="letter-content">${escapeHtml(letter.content)}</div>
-                    <div class="comments-section">
-                        ${commentsHtml}
-                        <div class="add-comment">
-                            <input type="text" placeholder="写一条评论..." id="commentInput_${letter.id}">
-                            <button class="comment-submit" data-id="${letter.id}">💬 评论</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-        container.innerHTML = html;
-
-        document.querySelectorAll('.delete-letter-btn').forEach(btn => {
-            btn.addEventListener('click', () => deleteLetter(btn.getAttribute('data-id')));
-        });
-        document.querySelectorAll('.delete-comment-btn').forEach(btn => {
-            btn.addEventListener('click', () => deleteComment(btn.getAttribute('data-letterid'), btn.getAttribute('data-commentid')));
-        });
-        document.querySelectorAll('.comment-submit').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const id = btn.getAttribute('data-id');
-                const input = document.getElementById(`commentInput_${id}`);
-                const text = input.value.trim();
-                if (text) { addComment(id, text); input.value = ''; } else alert("评论不能为空");
-            });
-        });
     });
 
     function escapeHtml(str) {
