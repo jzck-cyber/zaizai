@@ -7,6 +7,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
+        /* 样式与之前一致，省略以节省篇幅，但实际代码需包含全部样式 */
         *{margin:0;padding:0;box-sizing:border-box;}
         body{font-family: system-ui;background: linear-gradient(145deg, #f9f0f4, #ffe6ef);padding: 2rem 1rem;color:#2c1e2a;}
         .container{max-width:800px;margin:0 auto;}
@@ -107,57 +108,11 @@
     const adminPanelDiv = document.getElementById('adminPanel');
     const privateContainer = document.getElementById('privateLettersContainer');
 
-    // ====== 管理员验证（主动点击按钮触发） ======
-    document.getElementById('becomeAdminBtn').addEventListener('click', () => {
-        const pwd = prompt("请输入管理员密码：");
-        if (pwd === ADMIN_PASSWORD) {
-            isAdmin = true;
-            adminStatusDiv.style.display = 'inline-block';
-            adminPanelDiv.innerHTML = `<button id="exitAdminBtn" class="admin-btn">🔒 退出管理员</button>`;
-            document.getElementById('exitAdminBtn').addEventListener('click', () => {
-                isAdmin = false;
-                adminStatusDiv.style.display = 'none';
-                adminPanelDiv.innerHTML = `<button id="becomeAdminBtn" class="admin-btn">🔑 成为管理员</button>`;
-                privateContainer.style.display = 'none';
-                // 重新绑定“成为管理员”事件
-                document.getElementById('becomeAdminBtn').addEventListener('click', arguments.callee);
-                statusDiv.innerHTML = '✅ 已退出管理员模式';
-                statusDiv.style.backgroundColor = '#e6f7e6';
-            });
-            statusDiv.innerHTML = '✅ 管理员验证通过，可管理所有内容';
-            statusDiv.style.backgroundColor = '#e6f7e6';
-            // 显示私信容器并立即加载一次数据
-            privateContainer.style.display = 'block';
-            loadPrivateLetters(); // 立即加载私信
-            // 同时保持实时监听（已经绑定了）
-        } else {
-            alert('密码错误，请重试。');
-        }
-    });
-
-    // 初始状态：普通用户
-    statusDiv.innerHTML = '✅ 普通匿名模式（点击“成为管理员”可获取管理权限）';
-    statusDiv.style.backgroundColor = '#e6f7e6';
-    adminStatusDiv.style.display = 'none';
-    privateContainer.style.display = 'none';
-
-    // ====== 私信加载函数（主动调用） ======
-    function loadPrivateLetters() {
-        database.ref('privateLetters').once('value').then((snapshot) => {
-            renderPrivateLetters(snapshot);
-        }).catch(err => {
-            console.error("加载私信失败", err);
-        });
-    }
-
-    // ====== 私信渲染函数 ======
+    // ====== 私信渲染函数（独立，不依赖 isAdmin 判断） ======
     function renderPrivateLetters(snapshot) {
         const privateLetters = snapshot.val();
-        if (!isAdmin) {
-            privateContainer.style.display = 'none';
-            return;
-        }
-        privateContainer.style.display = 'block';
+        // 清空容器
+        privateContainer.innerHTML = '';
         if (!privateLetters) {
             privateContainer.innerHTML = `
                 <div class="card">
@@ -165,6 +120,7 @@
                     <p style="text-align:center; color:#b28aa0; padding:1rem;">暂无私信</p>
                 </div>
             `;
+            privateContainer.style.display = 'block';
             return;
         }
         const lettersArray = Object.entries(privateLetters).map(([id, data]) => ({ id, ...data }));
@@ -185,6 +141,7 @@
         });
         html += `</div>`;
         privateContainer.innerHTML = html;
+        privateContainer.style.display = 'block';
 
         // 绑定私信删除事件
         document.querySelectorAll('.delete-private-btn').forEach(btn => {
@@ -198,14 +155,57 @@
         });
     }
 
+    // ====== 管理员验证（主动点击按钮触发） ======
+    document.getElementById('becomeAdminBtn').addEventListener('click', () => {
+        const pwd = prompt("请输入管理员密码：");
+        if (pwd === ADMIN_PASSWORD) {
+            isAdmin = true;
+            adminStatusDiv.style.display = 'inline-block';
+            adminPanelDiv.innerHTML = `<button id="exitAdminBtn" class="admin-btn">🔒 退出管理员</button>`;
+            document.getElementById('exitAdminBtn').addEventListener('click', () => {
+                isAdmin = false;
+                adminStatusDiv.style.display = 'none';
+                adminPanelDiv.innerHTML = `<button id="becomeAdminBtn" class="admin-btn">🔑 成为管理员</button>`;
+                privateContainer.style.display = 'none';
+                // 重新绑定“成为管理员”事件
+                document.getElementById('becomeAdminBtn').addEventListener('click', arguments.callee);
+                statusDiv.innerHTML = '✅ 已退出管理员模式';
+                statusDiv.style.backgroundColor = '#e6f7e6';
+            });
+            statusDiv.innerHTML = '✅ 管理员验证通过，可管理所有内容';
+            statusDiv.style.backgroundColor = '#e6f7e6';
+            // 立即加载并显示私信
+            privateContainer.style.display = 'block';
+            database.ref('privateLetters').once('value').then(snapshot => {
+                renderPrivateLetters(snapshot);
+            }).catch(err => {
+                console.error("加载私信失败", err);
+                privateContainer.innerHTML = `<div class="card"><p style="color:red;">加载私信失败，请刷新重试</p></div>`;
+                privateContainer.style.display = 'block';
+            });
+        } else {
+            alert('密码错误，请重试。');
+        }
+    });
+
+    // 初始状态：普通用户
+    statusDiv.innerHTML = '✅ 普通匿名模式（点击“成为管理员”可获取管理权限）';
+    statusDiv.style.backgroundColor = '#e6f7e6';
+    adminStatusDiv.style.display = 'none';
+    privateContainer.style.display = 'none';
+
     // ====== 实时监听私信变化（自动更新） ======
     const privateLettersRef = database.ref('privateLetters');
     privateLettersRef.on('value', (snapshot) => {
-        // 只有管理员才渲染，但渲染函数内部会判断
-        renderPrivateLetters(snapshot);
+        // 只有管理员才渲染，否则隐藏容器
+        if (isAdmin) {
+            renderPrivateLetters(snapshot);
+        } else {
+            privateContainer.style.display = 'none';
+        }
     });
 
-    // ====== 公开信件功能 ======
+    // ====== 以下公开信件功能保持不变 ======
     document.getElementById('postLetterBtn').addEventListener('click', async () => {
         const content = document.getElementById('newLetter').value.trim();
         if (!content) return alert("请填写内容");
