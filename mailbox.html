@@ -26,8 +26,9 @@
         .comment-meta{font-size:0.65rem;color:#c28aa0;margin-bottom:0.2rem;}
         .add-comment{display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;}
         .add-comment input{flex:1;padding:0.4rem 0.8rem;border-radius:2rem;border:1px solid #f5cfdf;}
-        .admin-status{background:#f5f0f2;padding:0.3rem 0.8rem;border-radius:2rem;font-size:0.7rem;display:inline-block;margin-bottom:0.5rem;}
-        .status-bar{background:#f5f0f2;padding:0.3rem 0.8rem;border-radius:2rem;font-size:0.7rem;display:inline-block;margin-bottom:0.5rem;}
+        .admin-panel{text-align:right;margin-bottom:1rem;}
+        .admin-btn{background:#cdb5c2;font-size:0.7rem;padding:0.2rem 0.8rem;}
+        .status-bar{background:#f5f0f2;padding:0.3rem 0.8rem;border-radius:2rem;font-size:0.7rem;display:inline-block;margin-bottom:1rem;}
         .browser-tip{background:#fff0f5;border-radius:1rem;padding:0.5rem;margin-bottom:1rem;text-align:center;font-size:0.8rem;}
         footer{text-align:center;margin-top:2rem;font-size:0.7rem;color:#b28aa0;}
         .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);justify-content:center;align-items:center;z-index:1000;}
@@ -40,6 +41,7 @@
         .private-letter-meta{font-size:0.7rem;color:#b28aa0;margin-bottom:0.3rem;}
         .private-letter-content{font-size:0.9rem;word-break:break-word;}
         .btn-private{background:#b84c6c;}
+        .admin-status{background:#e6f7e6;padding:0.3rem 0.8rem;border-radius:2rem;font-size:0.7rem;display:inline-block;margin-bottom:0.5rem;color:#2e7d32;}
     </style>
 </head>
 <body>
@@ -50,15 +52,18 @@
             <button id="openPrivateLetterBtn" class="btn-private" style="padding:0.4rem 1.2rem;">✉️ 写给崽崽的信</button>
         </div>
         <div class="sub">匿名倾诉，温暖回响</div>
-        <div class="browser-tip">欢迎每一位喜欢崽崽的写信呀</div>
+        <div class="browser-tip">📱 推荐使用 Chrome 或 Safari 浏览器</div>
         <div id="statusBar" class="status-bar">⏳ 初始化中...</div>
+        <div id="adminPanel" class="admin-panel">
+            <button id="becomeAdminBtn" class="admin-btn">🔑 成为管理员</button>
+        </div>
         <div id="adminStatus" class="admin-status" style="display:none;">🔓 管理员模式已开启（本次会话）</div>
         <textarea id="newLetter" rows="3" placeholder="写下你想说的话...（匿名，公开可见）"></textarea>
         <button id="postLetterBtn">📨 发布信件</button>
     </div>
     <div id="lettersContainer"></div>
     <div id="privateLettersContainer" style="display:none;"></div>
-    <footer>✨ 所有内容匿名，请友善发言 | 管理员每次进入需验证 ✨</footer>
+    <footer>✨ 所有内容匿名，请友善发言 | 管理员需主动验证 ✨</footer>
 </div>
 
 <!-- 私信模态框 -->
@@ -99,26 +104,44 @@
 
     const statusDiv = document.getElementById('statusBar');
     const adminStatusDiv = document.getElementById('adminStatus');
+    const adminPanelDiv = document.getElementById('adminPanel');
 
-    // ====== 管理员验证 ======
-    function verifyAdmin() {
-        const pwd = prompt("请输入管理员密码（每次进入都需要验证）：");
+    // ====== 管理员验证（主动点击按钮触发） ======
+    document.getElementById('becomeAdminBtn').addEventListener('click', () => {
+        const pwd = prompt("请输入管理员密码：");
         if (pwd === ADMIN_PASSWORD) {
             isAdmin = true;
             adminStatusDiv.style.display = 'inline-block';
+            adminPanelDiv.innerHTML = `<button id="exitAdminBtn" class="admin-btn">🔒 退出管理员</button>`;
+            document.getElementById('exitAdminBtn').addEventListener('click', () => {
+                isAdmin = false;
+                adminStatusDiv.style.display = 'none';
+                adminPanelDiv.innerHTML = `<button id="becomeAdminBtn" class="admin-btn">🔑 成为管理员</button>`;
+                document.getElementById('privateLettersContainer').style.display = 'none';
+                // 重新绑定“成为管理员”事件
+                document.getElementById('becomeAdminBtn').addEventListener('click', arguments.callee);
+                statusDiv.innerHTML = '✅ 已退出管理员模式';
+                statusDiv.style.backgroundColor = '#e6f7e6';
+                // 重新渲染公开信件（隐藏删除按钮）
+                // 由于 lettersRef 会自动更新，我们只需重新触发渲染，但 firebase 监听会自己处理
+                // 但为了立即生效，我们可以手动触发一次重新渲染
+                // 不需要额外操作，因为 isAdmin 改变后，渲染函数中的条件会变化
+            });
             statusDiv.innerHTML = '✅ 管理员验证通过，可管理所有内容';
             statusDiv.style.backgroundColor = '#e6f7e6';
             document.getElementById('privateLettersContainer').style.display = 'block';
+            // 重新渲染私信列表（因为之前可能已加载但未显示）
+            // 由于 privateLettersRef 监听已存在，显示 container 后会自动填充内容
         } else {
-            isAdmin = false;
-            adminStatusDiv.style.display = 'none';
-            statusDiv.innerHTML = '✅ 普通匿名模式（刷新页面可重新验证）';
-            statusDiv.style.backgroundColor = '#e6f7e6';
-            document.getElementById('privateLettersContainer').style.display = 'none';
-            if (pwd !== null) alert('密码错误，将以普通用户身份访问。如需重试，请刷新页面。');
+            alert('密码错误，请重试。');
         }
-    }
-    verifyAdmin();
+    });
+
+    // 初始状态：普通用户
+    statusDiv.innerHTML = '✅ 普通匿名模式（点击“成为管理员”可获取管理权限）';
+    statusDiv.style.backgroundColor = '#e6f7e6';
+    adminStatusDiv.style.display = 'none';
+    document.getElementById('privateLettersContainer').style.display = 'none';
 
     // ====== 公开信件功能 ======
     document.getElementById('postLetterBtn').addEventListener('click', async () => {
